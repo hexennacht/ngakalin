@@ -11,19 +11,22 @@ env:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --verbose
     - name: Run tests
       run: cargo test --verbose
-    - name: Rust Release
-      uses: manoadamro/rust-release@v1
-      with:
-        owner: ${{ github.repository_owner }}
-        repo: ${{ github.repository }}
-        token: ${{ secrets.GITHUB_TOKEN }}
-        dry_run: true
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: manoadamro/rust-release@v1
+        with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: ${{ github.event.release.tag_name }}
+          targets: linux/amd64,linux/arm64,windows/amd64,darwin/amd64,darwin/arm64
