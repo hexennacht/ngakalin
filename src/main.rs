@@ -2,7 +2,7 @@ use std::sync::Arc;
 use axum::http::{Response, StatusCode};
 use axum::{Router};
 use axum::response::IntoResponse;
-use axum::routing::{delete, get, patch, post, put};
+use axum::routing::{delete, get, patch, post, put, MethodRouter};
 use structopt::StructOpt;
 use crate::endpoint::{Service, Source};
 
@@ -35,11 +35,22 @@ async fn main() {
 
 fn register_route(services: Vec<Service>) -> Router {
     let mut app: Router = Router::new();
+    let mut routers: Vec<(String, MethodRouter)> = vec![];
 
-    for service in services {
-        let sources = service.clone().sources;
+    services.into_iter()
+        .for_each(|service| routers.append(&mut create_route(service)));
 
-        for source in sources {
+    routers.into_iter()
+        .for_each(|route| app = app.clone().route(route.clone().0.as_str(), route.clone().1.clone()));
+
+    app
+}
+
+fn create_route(service: Service) -> Vec<(String, MethodRouter)> {
+    let sources = service.clone().sources;
+
+    sources.into_iter()
+        .map(|source| {
             let endpoint_config = Arc::new(source.clone());
             let route = match source.clone().method.as_str() {
                 "GET" => get(move || handle_mock_response(endpoint_config.clone())),
@@ -51,10 +62,9 @@ fn register_route(services: Vec<Service>) -> Router {
             };
 
             let endpoint = format!("{}{}", service.clone().prefix, source.clone().endpoint);
-            app = app.route(endpoint.as_str(), route);
-        }
-    }
-    app
+
+            (endpoint, route)
+        }).collect()
 }
 
 async fn handle_mock_response(
