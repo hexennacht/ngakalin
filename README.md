@@ -14,3 +14,5 @@ cargo build --release
 
 **TODO List**
 * [ ] Scheduler to register new endpoint
+* [ ] Add tracing and logging
+* [ ] Add dockerfile
