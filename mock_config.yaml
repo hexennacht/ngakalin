@@ -1,0 +1,27 @@
+services:
+  - name: "cart"
+    prefix: "/cart"
+    sources:
+      - endpoint: "/add-to-cart"
+        method: "POST"
+        content_type: "application/json"
+        response: "./responses/general_error.json"
+        status: 200
+        query_params:
+          - isError=true
+  - name: "order"
+    prefix: "/order"
+    sources:
+      - endpoint: "/buy"
+        method: "POST"
+        content_type: "application/json"
+        response: "./responses/success_order.json"
+        status: 200
+        query_params:
+          - isError=true
+      - endpoint: "/my-order"
+        method: "GET"
+        content_type: "application/xml"
+        response: "./responses/example.xml"
+        status: 200
+        query_params:

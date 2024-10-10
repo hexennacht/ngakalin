@@ -1,0 +1,8 @@
+---
+service:
+  name: "ngakalin"
+  version: "0.1.0"
+  host: "127.0.0.1"
+  port: "8000"
+response:
+  config_file: "./mock_config.yaml"

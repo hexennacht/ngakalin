@@ -1,0 +1,11 @@
+{
+  "errors": [
+    {
+      "code": "AGE_RESTRICTED",
+      "message": "Should be above 21",
+      "priority": 0
+    }
+  ],
+  "errorCode": "AGE_RESTRICTED",
+  "message": "Got an error"
+}

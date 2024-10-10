@@ -1,0 +1,14 @@
+{
+  "data": {
+    "orderId": "81297482",
+    "paymentUrl": "https://payment.com"
+  },
+  "metadata": {
+    "title": "Booking Success",
+    "button": {
+      "title": "Go to Payment Page",
+      "type": "btnPrimary",
+      "action": "paymentPage"
+    }
+  }
+}

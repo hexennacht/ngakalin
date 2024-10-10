@@ -1,0 +1,17 @@
+[package]
+name = "ngakalin"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+axum = { version = "0.7.7", features = ["default", "json", "query", "tokio", "tower-log", "tracing", "matched-path", "original-uri"] }
+serde = { version = "1.0.210", features = ["derive", "std"] }
+serde_yaml = { version = "0.9.33" }
+serde_json = { version = "1.0.128", features = ["default", "std"] }
+tower-http = "0.6.1"
+tracing = "0.1.40"
+tracing-subscriber = "0.3.18"
+structopt = { version = "0.3", features = [ "paw" ] }
+paw = "1.0"
+hyper = { version = "1.4.1", features = ["default", "full"] }
