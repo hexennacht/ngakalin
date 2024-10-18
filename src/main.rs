@@ -1,8 +1,11 @@
-use std::sync::Arc;
 use axum::http::{Response, StatusCode};
 use axum::{Router};
+use axum::extract::{Request, State};
 use axum::response::IntoResponse;
 use axum::routing::{delete, get, patch, post, put, MethodRouter};
+use bb8::{Pool};
+use bb8_redis::RedisConnectionManager;
+use redis::AsyncCommands;
 use structopt::StructOpt;
 use crate::endpoint::{Service, Source};
 
@@ -30,12 +33,14 @@ async fn main() {
 
     let services = endpoint_config.clone().services;
 
-    axum::serve(listener, register_route(services)).await.unwrap();
+    let route = register_route(services).await;
+
+    axum::serve(listener, route.with_state(AppState{redis_connection: connect_redis().await})).await.unwrap()
 }
 
-fn register_route(services: Vec<Service>) -> Router {
-    let mut app: Router = Router::new();
-    let mut routers: Vec<(String, MethodRouter)> = vec![];
+async fn register_route(services: Vec<Service>) -> Router<AppState> {
+    let mut app: Router<AppState> = Router::new();
+    let mut routers: Vec<(String, MethodRouter<AppState>)> = vec![];
 
     services.into_iter()
         .for_each(|service| routers.append(&mut create_route(service)));
@@ -46,18 +51,35 @@ fn register_route(services: Vec<Service>) -> Router {
     app
 }
 
-fn create_route(service: Service) -> Vec<(String, MethodRouter)> {
+async fn connect_redis() -> Pool<RedisConnectionManager> {
+    tracing::debug!("connecting to redis");
+
+    let manager = RedisConnectionManager::new("redis://127.0.0.1:6379").unwrap();
+    let pool = bb8::Pool::builder().build(manager).await.unwrap();
+    {
+        // ping the database before starting
+        let mut conn = pool.get().await.unwrap();
+        conn.set::<&str, &str, ()>("foo", "bar").await.unwrap();
+        let result: String = conn.get("foo").await.unwrap();
+        assert_eq!(result, "bar");
+    }
+
+    tracing::debug!("successfully connected to redis and pinged it");
+
+    pool
+}
+
+fn create_route(service: Service) -> Vec<(String, MethodRouter<AppState>)> {
     let sources = service.clone().sources;
 
     sources.into_iter()
         .map(|source| {
-            let endpoint_config = Arc::new(source.clone());
             let route = match source.clone().method.as_str() {
-                "GET" => get(move || handle_mock_response(endpoint_config.clone())),
-                "POST" => post(move || handle_mock_response(endpoint_config.clone())),
-                "PUT" => put(move || handle_mock_response(endpoint_config.clone())),
-                "DELETE" => delete(move || handle_mock_response(endpoint_config.clone())),
-                "PATCH" => patch(move || handle_mock_response(endpoint_config.clone())),
+                "GET" => get(handle_mock_response),
+                "POST" => post(handle_mock_response),
+                "PUT" => put(handle_mock_response),
+                "DELETE" => delete(handle_mock_response),
+                "PATCH" => patch(handle_mock_response),
                 _ => unreachable!()
             };
 
@@ -67,9 +89,27 @@ fn create_route(service: Service) -> Vec<(String, MethodRouter)> {
         }).collect()
 }
 
+type ConnectionPool = Pool<RedisConnectionManager>;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub redis_connection: ConnectionPool
+}
+
 async fn handle_mock_response(
-    endpoint_config: Arc<Source>,
+    State(state): State<AppState>,
+    req: Request
 ) -> impl IntoResponse {
+    let redis_connection = state.clone().redis_connection.clone();
+    println!("mock response: {:?} {:?}", req.uri().clone().host(), req.uri().clone().path());
+    let mut conn = redis_connection.get().await.unwrap();
+
+    let res: String = conn.get("foo").await.unwrap();
+
+    tracing::debug!("response: {}", res.clone());
+
+    let endpoint_config: Source = serde_json::from_str(res.as_str()).unwrap();
+
     let status_code = StatusCode::from_u16(endpoint_config.clone().status).unwrap();
 
     let body: String = match endpoint_config.clone().content_type.as_str() {
