@@ -16,6 +16,7 @@ mod cmd;
 #[tokio::main]
 async fn main() {
     blocking().await;
+    tracing_subscriber::fmt::init();
 
     let conf = cmd::Command::from_args();
 
@@ -35,6 +36,7 @@ async fn main() {
 
     let route = register_route(services).await;
 
+    tracing::info!("Server started");
     axum::serve(listener, route.with_state(AppState{redis_connection: connect_redis().await})).await.unwrap()
 }
 
@@ -52,7 +54,7 @@ async fn register_route(services: Vec<Service>) -> Router<AppState> {
 }
 
 async fn connect_redis() -> Pool<RedisConnectionManager> {
-    tracing::debug!("connecting to redis");
+    tracing::info!("connecting to redis");
 
     let manager = RedisConnectionManager::new("redis://127.0.0.1:6379").unwrap();
     let pool = bb8::Pool::builder().build(manager).await.unwrap();
@@ -64,7 +66,7 @@ async fn connect_redis() -> Pool<RedisConnectionManager> {
         assert_eq!(result, "bar");
     }
 
-    tracing::debug!("successfully connected to redis and pinged it");
+    tracing::info!("successfully connected to redis and pinged it");
 
     pool
 }
@@ -101,14 +103,14 @@ async fn handle_mock_response(
     req: Request
 ) -> impl IntoResponse {
     let redis_connection = state.clone().redis_connection.clone();
-    println!("mock response: {:?} {:?}", req.uri().clone().host(), req.uri().clone().path());
+    tracing::info!("mock response: {:?} {:?}", req.uri().clone().host(), req.uri().clone().path());
     let mut conn = redis_connection.get().await.unwrap();
 
     let res: String = conn.get("foo").await.unwrap();
 
-    tracing::debug!("response: {}", res.clone());
+    tracing::info!("response: {}", res.clone());
 
-    let endpoint_config: Source = serde_json::from_str(res.as_str()).unwrap();
+    let endpoint_config: Source = serde_json::from_str::<Source>(res.as_str()).unwrap();
 
     let status_code = StatusCode::from_u16(endpoint_config.clone().status).unwrap();
 
